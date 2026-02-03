@@ -9,6 +9,12 @@
 // Prérequis (Vercel) : connecter une base "Vercel Postgres (Neon)" au projet.
 // Vercel injecte automatiquement les variables d'environnement Postgres.
 
+// Support Neon connection strings provided as DATABASE_URL (outside Vercel Postgres integration)
+// by mapping them to POSTGRES_URL for @vercel/postgres.
+if (!process.env.POSTGRES_URL && process.env.DATABASE_URL){
+  process.env.POSTGRES_URL = process.env.DATABASE_URL;
+}
+
 const { sql } = require('@vercel/postgres');
 
 const STORAGE_KEY = 'sdmfpippdc:storage:v1';
@@ -19,7 +25,8 @@ function hasPostgresEnv(){
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_HOST
+    process.env.POSTGRES_HOST ||
+    process.env.DATABASE_URL
   );
 }
 
@@ -46,6 +53,33 @@ function parseBody(req){
 
 module.exports = async function handler(req, res){
   try{
+    // Diagnostic endpoint (no secrets): /api/storage?diag=1
+    let diag = false;
+    try{
+      const u = new URL(req.url, 'http://localhost');
+      const v = u.searchParams.get('diag');
+      diag = (v === '1' || v === 'true');
+    }catch(e){
+      // Fallback: naive check
+      diag = (req && req.url && String(req.url).indexOf('diag=1') >= 0);
+    }
+
+    if (diag){
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({
+        ok: true,
+        diag: {
+          hasPostgresEnv: hasPostgresEnv(),
+          has_POSTGRES_URL: !!process.env.POSTGRES_URL,
+          has_POSTGRES_PRISMA_URL: !!process.env.POSTGRES_PRISMA_URL,
+          has_POSTGRES_URL_NON_POOLING: !!process.env.POSTGRES_URL_NON_POOLING,
+          has_POSTGRES_HOST: !!process.env.POSTGRES_HOST,
+          has_DATABASE_URL: !!process.env.DATABASE_URL,
+          node: process.version
+        }
+      });
+    }
+
     if (!hasPostgresEnv()){
       res.setHeader('Cache-Control', 'no-store');
       return res.status(503).json({

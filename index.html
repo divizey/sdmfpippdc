@@ -4247,6 +4247,13 @@
         ? String(__remoteLastError.error || __remoteLastError.code || __remoteLastError.message)
         : 'non configuré';
       textEl.textContent = 'Stockage: ' + msg;
+
+      // Helpful hint in console for Vercel Postgres debugging
+      try{
+        if (String(msg).indexOf('pg_not_configured') >= 0){
+          console.warn('[SDMFPIPPDC] Postgres not configured. Try: /api/storage?diag=1 on your deployed site.');
+        }
+      }catch(e){}
     }
 
     function remoteFlush(silent){
@@ -7643,8 +7650,8 @@
             toast('info', 'Stockage', 'Vérification du stockage…');
             await initRemoteStore();
             updateRemotePill();
-            if (__dbReady) toast('success', 'Stockage', 'Synchronisation Vercel active.');
-            else toast('warn', 'Stockage', 'Persistance non configurée (Vercel KV/Upstash).');
+            if (__dbReady) toast('success', 'Stockage', 'Synchronisation Vercel active (Postgres).');
+            else toast('warn', 'Stockage', 'Persistance non configurée (Vercel Postgres/Neon).');
           }catch(e){
             try{ updateRemotePill(); }catch(_e){}
             toast('error', 'Stockage', 'Vérification impossible.');
@@ -7927,8 +7934,8 @@
                 ? String(__remoteLastError.code || __remoteLastError.message)
                 : '';
 
-              if (codeOrMsg.indexOf('kv_not_configured') >= 0){
-                toast('warn', 'Stockage', 'Persistance désactivée: configurez Vercel KV/Upstash (API /api/storage).');
+              if (codeOrMsg.indexOf('pg_not_configured') >= 0){
+                toast('warn', 'Stockage', 'Persistance désactivée: connectez Vercel Postgres (Neon) ou définissez DATABASE_URL / POSTGRES_URL.');
               } else if (codeOrMsg.indexOf('timeout') >= 0){
                 toast('warn', 'Stockage', 'Timeout réseau (API /api/storage).');
               } else {
